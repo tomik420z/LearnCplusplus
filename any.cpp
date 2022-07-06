@@ -1,11 +1,12 @@
 #include <iostream>
+#include <vector>
+#include <string>
 //type erasure idiom C++
 // for exaple any class 
 
-namespace proj{
-    
 class any {
 private:
+
     struct base_helper{
         virtual ~base_helper() = default; 
         virtual const std::type_info & get_type() const = 0; 
@@ -17,40 +18,72 @@ private:
 
         derived_helper(const T& value): value(value) {}
 
+        derived_helper(T&& value) : value(std::move(value)) {}
+
         const std::type_info & get_type() const {
             return typeid(value);
         }
+    
     };
+
+ 
 
     base_helper * object;
 public:
     
     template <typename T> 
-    friend T any_cast(any& obj_any);
+    friend T any_cast(const any& obj_any);
 
     any() : object(nullptr) {}
 
     template <typename T>
     any(const T& object) : object(new derived_helper<T>(object)) {}
-    
-    ~any() { delete object; }
+
+    template<typename T>
+    any(T&& object) : object(new derived_helper<T>(std::move(object))) {}    
+
+    template <typename T>
+    any & operator=(const T & __object) {
+        if (object != nullptr) {
+            delete object; 
+        }
+        object = new derived_helper<T>(__object);
+        return *this;
+    }
+
+    template <typename T>
+    any & operator=(T&& __object) {
+        if (object != nullptr) {
+            delete object; 
+        }
+        object = new derived_helper<T>(std::move(__object));
+        return *this;
+        
+    }
+
+    ~any() { if (object != nullptr) delete object; }
 };
 
 template <typename T> 
-T any_cast(any & obj_any) {
-    if(dynamic_cast<any::derived_helper<T>*>(obj_any.object)->get_type() != typeid(T)) {
-        throw std::exception();
+T any_cast(const any & obj_any) {
+    auto ptr = dynamic_cast<any::derived_helper<T>*>(obj_any.object); 
+    if(ptr->get_type() != typeid(T)) {
+        throw std::exception(); // bad_any_cast
     } else {
-        return dynamic_cast<any::derived_helper<T>*>(obj_any.object)->value;
+        return ptr->value;
     }
 }
 
-};
 
-using namespace proj;
+
 
 int main() {
-    any obj = std::string("abbbd");
+    std::string str = "abbbd";
+    any obj = std::move(str);
+    std::cout << any_cast<std::string>(obj) << std::endl;
+    obj = 234; 
     std::cout << any_cast<int>(obj) << std::endl;
+    obj = std::vector<int>({0,4,6,3,6,7});
+    std::cout << any_cast<std::vector<int>>(obj)[0] << std::endl;
     return 0;
 }
