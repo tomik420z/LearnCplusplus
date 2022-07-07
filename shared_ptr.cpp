@@ -3,7 +3,6 @@
 #include "pool_alloc.h"
 
 namespace proj {
-
     template <typename T>
     class my_alloc{
         using value_type = T;
@@ -32,7 +31,10 @@ namespace proj {
             size_t count_of_weak;
             
             base_control_block(size_t cs, size_t cw) : count_of_shared(cs), count_of_weak(cw) {}
-            ~base_control_block() = default;
+
+            virtual void deallocate() = 0;
+            virtual void destroy() = 0;        
+            virtual ~base_control_block() = default;
         };
         
         template <typename _Alloc>
@@ -50,7 +52,11 @@ namespace proj {
             void destroy() {
                 alloc_traits::destroy(alloc, &object);
             }
-/*
+
+            void deallocate() {
+                alloc_traits::deallocate(alloc, this, 1);
+            }
+            /*
             ~control_block_make_shared() {
                 destroy();
                 alloc_traits::deallocate(alloc, this, 1);            
@@ -61,8 +67,6 @@ namespace proj {
         base_control_block * ptr;
         
         T* value;   
-        template<typename _Alloc>
-        shared_ptr(control_block_make_shared<_Alloc>  *);
 
     public:
         template <typename U, typename... Args>
@@ -105,17 +109,18 @@ namespace proj {
     template<typename T>
     shared_ptr<T>::shared_ptr(const shared_ptr<T> & obj) : ptr(obj.ptr), value(obj.value) {
         ++ptr->count_of_shared;
-    }
-    template<typename T>
-    template<typename _Alloc>
-    shared_ptr<T>::shared_ptr(control_block_make_shared<_Alloc> * ptr) : ptr(ptr), value(&ptr->value) { } 
+    } 
 
     template<typename T>
     shared_ptr<T>::shared_ptr() : ptr(nullptr), value(nullptr) {}
     
     template<typename T>
     shared_ptr<T>::~shared_ptr() {
-        
+        --ptr->count_of_shared;
+        if (ptr->count_of_shared == 0) {
+            ptr->destroy();
+            ptr->deallocate();
+        }
     }
        
     template <typename T, typename... Args>
@@ -124,9 +129,8 @@ namespace proj {
     }    
 
     template <typename T, typename Alloc,  typename... Args>
-    shared_ptr<T> allocate_shared(Alloc & alloc, Args&&... args) {
+    shared_ptr<T> allocate_shared(const Alloc & alloc, Args&&... args) {
         return ptr(alloc, std::forward<Args>(args)...);
-    
     }
 };
 
@@ -136,10 +140,11 @@ int main() {
 
     shared_ptr<int> ptr1 = make_shared<int>(10);
     shared_ptr<int> ptr2 = make_shared<int>(15);
-
+    shared_ptr<std::string> ptr3 = make_shared<std::string>("123456");
     //shared_ptr<int> ptr3 = allocate_shared<int, decltype(all)>(all, 17);
     std::cout << *ptr1 << std::endl;
     std::cout << *ptr2 << std::endl;
+    std::cout << *ptr3 << std::endl; 
     //std::cout << *ptr3 << std::endl;
     return 0;   
 }
