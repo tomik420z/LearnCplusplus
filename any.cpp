@@ -6,6 +6,10 @@
 
 class any {
 private:
+    struct base_helper;
+
+    template<typename T>
+    struct derived_helper;
 
     struct base_helper{
         virtual ~base_helper() = default; 
@@ -23,7 +27,6 @@ private:
         const std::type_info & get_type() const {
             return typeid(value);
         }
-    
     };
 
  
