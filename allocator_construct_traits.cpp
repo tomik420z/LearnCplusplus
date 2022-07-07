@@ -15,9 +15,6 @@ public:
             && std::is_constructible_v<T, Args...>;
 };
 
-template <typename AllocatorClass, typename... Args>
-static const bool has_method_construct_v  = has_method_construct<AllocatorClass, Args...>::value;
-
 //main call!
 // type, container, Args...
 template <typename T, template <typename U> class allocator_container, typename... Args>
